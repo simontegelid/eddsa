@@ -6,8 +6,19 @@ Note: This code is not intended for production.  Although it should
 produce correct results for every input, it is slow and makes no
 attempt to avoid side-channel attacks.
 """
+
+from __future__ import division
+import binascii
+import sys
 import hashlib
 import os
+
+
+def to_bytes(n, length, byteorder='big'):
+    # Same as Python 3's int.to_bytes, but for Python 2 compat
+    h = '%x' % n
+    s = binascii.unhexlify(('0' * (len(h) % 2) + h).zfill(length * 2))
+    return s if byteorder == 'big' else s[::-1]
 
 
 def sqrt4k3(x, p):
@@ -26,9 +37,21 @@ def sqrt8k5(x, p):
         return (y * z) % p
 
 
+def from_le2(s, le=True):
+    value = 0
+    for i, b in enumerate(bytearray(s)):
+        m = i if le else (len(s) - i - 1)
+        value += b << (8 * m)
+    return value
+
+
 def hexi(s):
     # Decode a hexadecimal string representation of the integer.
-    return int.from_bytes(bytes.fromhex(s), byteorder="big")
+    if sys.version_info > (3, 0):
+        r = int.from_bytes(bytes.fromhex(s), byteorder="big")
+    else:
+        r = from_le2(binascii.unhexlify(s), le=False)
+    return r
 
 
 def rol(x, b):
@@ -38,7 +61,11 @@ def rol(x, b):
 
 def from_le(s):
     # From little endian.
-    return int.from_bytes(s, byteorder="little")
+    if sys.version_info > (3, 0):
+        r = int.from_bytes(s, byteorder="little")
+    else:
+        r = from_le2(s)
+    return r
 
 
 def sha3_transform(s):
@@ -93,7 +120,7 @@ def reinterpret_to_octets(w):
     # Reinterpret word array w to octet array and return it.
     mp = bytearray()
     for j in range(0, len(w)):
-        mp += w[j].to_bytes(8, byteorder="little")
+        mp += to_bytes(w[j], 8, byteorder="little")
     return mp
 
 
@@ -130,7 +157,7 @@ def shake256(msg, olen):
     return sha3_raw(msg, 17, 31, olen)
 
 
-class Field:
+class Field(object):
     # A (prime) field element.
     def __init__(self, x, p):
         # Construct number x (mod p).
@@ -202,7 +229,7 @@ class Field:
 
     def tobytes(self, b):
         # Serialize number to b-1 bits.
-        return self.__x.to_bytes(b // 8, byteorder="little")
+        return to_bytes(self.__x, b // 8, byteorder="little")
 
     def frombytes(self, x, b):
         # Unserialize number from bits.
@@ -229,6 +256,7 @@ class EdwardsPoint(object):
         if len(s) != b // 8:
             return (None, None)
         # Extract signbit.
+        s = bytearray(s)
         xs = s[(b - 1) // 8] >> ((b - 1) & 7)
         # Decode y.  If this fails, fail.
         y = self.base_field.frombytes(s, b)
@@ -500,13 +528,13 @@ def self_check_curves():
     curve_self_check(Edwards448Point.stdbase())
 
 
-class PureEdDSA:
+class PureEdDSA(object):
     # PureEdDSA scheme.
     # Limitation: only b mod 8 = 0 is handled.
-    # Create a new object.
-    def __init__(self, properties):
-        self.B = properties["B"]
-        self.H = properties["H"]
+    def __init__(self, B, H):
+        # Create a new object.
+        self.B = B
+        self.H = H
         self.l = self.B.l()
         self.n = self.B.n()
         self.b = self.B.b()
@@ -547,7 +575,7 @@ class PureEdDSA:
         # Calculate h.
         h = from_le(self.H(R + pubkey + msg, ctx, hflag)) % self.l
         # Calculate s.
-        S = ((r + h * a) % self.l).to_bytes(self.b // 8, byteorder="little")
+        S = to_bytes(((r + h * a) % self.l), self.b // 8, byteorder="little")
         # The final signature is a concatenation of R and S.
         return R + S
 
@@ -585,10 +613,8 @@ def Ed25519_inthash(data, ctx, hflag):
 
 
 # The base PureEdDSA schemes.
-pEd25519 = PureEdDSA({
-    "B": Edwards25519Point.stdbase(),
-    "H": Ed25519_inthash
-})
+pEd25519 = PureEdDSA(B=Edwards25519Point.stdbase(),
+                     H=Ed25519_inthash)
 
 
 def Ed25519ctx_inthash(data, ctx, hflag):
@@ -597,14 +623,14 @@ def Ed25519ctx_inthash(data, ctx, hflag):
     if ctx is not None:
         if len(ctx) > 255:
             raise ValueError("Context too big")
-        dompfx = PREFIX + bytes([1 if hflag else 0, len(ctx)]) + ctx
+        dompfx = PREFIX + bytearray([1 if hflag else 0, len(ctx)]) + ctx
     return hashlib.sha512(dompfx + data).digest()
 
 
-pEd25519ctx = PureEdDSA({
-    "B": Edwards25519Point.stdbase(),
-    "H": Ed25519ctx_inthash
-})
+pEd25519ctx = PureEdDSA(
+    B=Edwards25519Point.stdbase(),
+    H=Ed25519ctx_inthash
+)
 
 
 def Ed448_inthash(data, ctx, hflag):
@@ -616,13 +642,13 @@ def Ed448_inthash(data, ctx, hflag):
     return shake256(dompfx + data, 114)
 
 
-pEd448 = PureEdDSA({
-    "B": Edwards448Point.stdbase(),
-    "H": Ed448_inthash
-})
+pEd448 = PureEdDSA(
+    B=Edwards448Point.stdbase(),
+    H=Ed448_inthash
+)
 
 
-class EdDSA:
+class EdDSA(object):
     # EdDSA scheme.
     # Create a new scheme object, with the specified PureEdDSA base
     # scheme and specified prehash.
@@ -686,8 +712,9 @@ if __name__ == "__main__":
     import binascii
 
     def munge_string(s, pos, change):
+        s = bytearray(s)
         return (s[:pos] +
-                int.to_bytes(s[pos] ^ change, 1, "little") +
+                to_bytes(s[pos] ^ change, 1, "little") +
                 s[pos + 1:])
 
     # Read a file in the format of
