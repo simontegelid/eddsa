@@ -1,5 +1,7 @@
 # Edwards-Curve Digital Signature Algorithm (EdDSA)
 
+[![Build Status](https://travis-ci.com/simontegelid/eddsa.svg?branch=master)](https://travis-ci.com/simontegelid/eddsa)
+
 Based on Appendix A and B in RFC 8032 (https://tools.ietf.org/html/rfc8032)
 
 ## Usage
