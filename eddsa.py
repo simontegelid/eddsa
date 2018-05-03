@@ -652,7 +652,7 @@ class EdDSA(object):
     # EdDSA scheme.
     # Create a new scheme object, with the specified PureEdDSA base
     # scheme and specified prehash.
-    def __init__(self, pure_scheme, prehash):
+    def __init__(self, pure_scheme, prehash=None):
         self.__pflag = True
         self.__pure = pure_scheme
         self.__prehash = prehash
@@ -686,25 +686,31 @@ def Ed448ph_prehash(data, ctx):
 
 
 # Our signature schemes.
-Ed25519 = EdDSA(pEd25519, None)
-Ed25519ctx = EdDSA(pEd25519ctx, None)
-Ed25519ph = EdDSA(pEd25519ctx, lambda x, y: hashlib.sha512(x).digest())
-Ed448 = EdDSA(pEd448, None)
-Ed448ph = EdDSA(pEd448, Ed448ph_prehash)
+class Ed25519(EdDSA):
+    def __init__(self):
+        super(Ed25519, self).__init__(pEd25519)
 
 
-def eddsa_obj(name):
-    if name == "Ed25519":
-        return Ed25519
-    if name == "Ed25519ctx":
-        return Ed25519ctx
-    if name == "Ed25519ph":
-        return Ed25519ph
-    if name == "Ed448":
-        return Ed448
-    if name == "Ed448ph":
-        return Ed448ph
-    raise NotImplementedError("Algorithm not implemented")
+class Ed25519ctx(EdDSA):
+    def __init__(self):
+        super(Ed25519ctx, self).__init__(pEd25519ctx)
+
+
+class Ed25519ph(EdDSA):
+    def __init__(self):
+        super(
+            Ed25519ph, self).__init__(
+            pEd25519ctx, lambda x, y: hashlib.sha512(x).digest())
+
+
+class Ed448(EdDSA):
+    def __init__(self):
+        super(Ed448, self).__init__(pEd448)
+
+
+class Ed448ph(EdDSA):
+    def __init__(self):
+        super(Ed448ph, self).__init__(pEd448, Ed448ph_prehash)
 
 
 if __name__ == "__main__":
@@ -732,14 +738,17 @@ if __name__ == "__main__":
         msg = binascii.unhexlify(fields[2])
         signature = binascii.unhexlify(fields[3])[:64]
 
-        privkey, pubkey = Ed25519.keygen(secret)
+        ed25519 = Ed25519()
+
+        privkey, pubkey = ed25519.keygen(secret)
         assert public == pubkey
-        assert signature == Ed25519.sign(privkey, pubkey, msg)
-        assert Ed25519.verify(public, msg, signature)
+        assert signature == ed25519.sign(privkey, pubkey, msg)
+        assert ed25519.verify(public, msg, signature)
         if len(msg) == 0:
             bad_msg = b"x"
         else:
             bad_msg = munge_string(msg, len(msg) // 3, 4)
-        assert not Ed25519.verify(public, bad_msg, signature)
-        assert not Ed25519.verify(public, msg, munge_string(signature, 20, 8))
-        assert not Ed25519.verify(public, msg, munge_string(signature, 40, 16))
+        assert not ed25519.verify(public, bad_msg, signature)
+        assert not ed25519.verify(public, msg, munge_string(signature, 20, 8))
+        assert not ed25519.verify(public, msg, munge_string(signature, 40, 16))
+
