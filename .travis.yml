@@ -4,4 +4,5 @@ python:
   - "3.5"
   - "3.6"
 script:
-  - test
+  - python test.py
+  - head -n5 sign.input | python eddsa.py
