@@ -638,7 +638,7 @@ def Ed448_inthash(data, ctx, hflag):
     if ctx is not None:
         if len(ctx) > 255:
             raise ValueError("Context too big")
-        dompfx = b"SigEd448" + bytes([1 if hflag else 0, len(ctx)]) + ctx
+        dompfx = b"SigEd448" + bytearray([1 if hflag else 0, len(ctx)]) + ctx
     return shake256(dompfx + data, 114)
 
 
