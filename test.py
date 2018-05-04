@@ -119,6 +119,60 @@ class TestEd25519ph(unittest.TestCase):
         self.assertFalse(ed.verify(pub, msg + b"foobar", sig, ctx))
         self.assertEqual(ed.keygen(prv), (prv, pub))
 
+    def test_abc_update(self):
+        prv = uh("833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42")
+        pub = uh("ec172b93ad5e563bf4932c70e1245034c35467ef2efd4d64ebf819683467e2bf")
+        ctx = uh("")
+        sig = uh("98a70222f0b8121aa9d30f813d683f809e462b469c7ff87639499bb94e6dae4131f85042463c2a355a2003d062adf5aaa10b8c61e636062aaad11c2a26083406")
+
+        ed = eddsa.Ed25519ph()
+
+        ed.update(b'\x61')
+        ed.update(b'\x62')
+        self.assertEqual(ed.sign(prv, pub, b'\x63', ctx), sig)
+
+    def test_abc_update2(self):
+        prv = uh("833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42")
+        pub = uh("ec172b93ad5e563bf4932c70e1245034c35467ef2efd4d64ebf819683467e2bf")
+        ctx = uh("")
+        sig = uh("98a70222f0b8121aa9d30f813d683f809e462b469c7ff87639499bb94e6dae4131f85042463c2a355a2003d062adf5aaa10b8c61e636062aaad11c2a26083406")
+
+        ed = eddsa.Ed25519ph()
+
+        ed.update(b'')
+        ed.update(b'\x61')
+        ed.update(b'')
+        ed.update(b'\x62')
+        ed.update(b'\x63')
+        self.assertEqual(ed.sign(prv, pub, b'', ctx), sig)
+
+    def test_abc_update3(self):
+        prv = uh("833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42")
+        pub = uh("ec172b93ad5e563bf4932c70e1245034c35467ef2efd4d64ebf819683467e2bf")
+        ctx = uh("")
+        sig = uh("98a70222f0b8121aa9d30f813d683f809e462b469c7ff87639499bb94e6dae4131f85042463c2a355a2003d062adf5aaa10b8c61e636062aaad11c2a26083406")
+
+        ed = eddsa.Ed25519ph()
+
+        ed.update(b'\x61')
+        ed.update(b'\x62')
+        self.assertTrue(ed.verify(pub, b'\x63', sig, ctx))
+
+    def test_abc_update4(self):
+        prv = uh("833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42")
+        pub = uh("ec172b93ad5e563bf4932c70e1245034c35467ef2efd4d64ebf819683467e2bf")
+        ctx = uh("")
+        sig = uh("98a70222f0b8121aa9d30f813d683f809e462b469c7ff87639499bb94e6dae4131f85042463c2a355a2003d062adf5aaa10b8c61e636062aaad11c2a26083406")
+
+        ed = eddsa.Ed25519ph()
+
+        ed.update(b'')
+        ed.update(b'\x61')
+        ed.update(b'')
+        ed.update(b'\x62')
+        ed.update(b'\x63')
+        self.assertTrue(ed.verify(pub, b'', sig, ctx))
+
 
 class TestEd448(unittest.TestCase):
 
@@ -184,6 +238,60 @@ class TestEd448ph(unittest.TestCase):
         self.assertTrue(ed.verify(pub, msg, sig, ctx))
         self.assertFalse(ed.verify(pub, msg + b"foobar", sig, ctx))
         self.assertEqual(ed.keygen(prv), (prv, pub))
+
+    def test_abc_update(self):
+        prv = uh("833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42ef7822e0d5104127dc05d6dbefde69e3ab2cec7c867c6e2c49")
+        pub = uh("259b71c19f83ef77a7abd26524cbdb3161b590a48f7d17de3ee0ba9c52beb743c09428a131d6b1b57303d90d8132c276d5ed3d5d01c0f53880")
+        ctx = uh("")
+        sig = uh("822f6901f7480f3d5f562c592994d9693602875614483256505600bbc281ae381f54d6bce2ea911574932f52a4e6cadd78769375ec3ffd1b801a0d9b3f4030cd433964b6457ea39476511214f97469b57dd32dbc560a9a94d00bff07620464a3ad203df7dc7ce360c3cd3696d9d9fab90f00")
+
+        ed = eddsa.Ed448ph()
+
+        ed.update(b'\x61')
+        ed.update(b'\x62')
+        self.assertEqual(ed.sign(prv, pub, b'\x63', ctx), sig)
+
+    def test_abc_update2(self):
+        prv = uh("833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42ef7822e0d5104127dc05d6dbefde69e3ab2cec7c867c6e2c49")
+        pub = uh("259b71c19f83ef77a7abd26524cbdb3161b590a48f7d17de3ee0ba9c52beb743c09428a131d6b1b57303d90d8132c276d5ed3d5d01c0f53880")
+        ctx = uh("")
+        sig = uh("822f6901f7480f3d5f562c592994d9693602875614483256505600bbc281ae381f54d6bce2ea911574932f52a4e6cadd78769375ec3ffd1b801a0d9b3f4030cd433964b6457ea39476511214f97469b57dd32dbc560a9a94d00bff07620464a3ad203df7dc7ce360c3cd3696d9d9fab90f00")
+
+        ed = eddsa.Ed448ph()
+
+        ed.update(b'')
+        ed.update(b'\x61')
+        ed.update(b'')
+        ed.update(b'\x62')
+        ed.update(b'\x63')
+        self.assertEqual(ed.sign(prv, pub, b'', ctx), sig)
+
+    def test_abc_update3(self):
+        prv = uh("833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42ef7822e0d5104127dc05d6dbefde69e3ab2cec7c867c6e2c49")
+        pub = uh("259b71c19f83ef77a7abd26524cbdb3161b590a48f7d17de3ee0ba9c52beb743c09428a131d6b1b57303d90d8132c276d5ed3d5d01c0f53880")
+        ctx = uh("")
+        sig = uh("822f6901f7480f3d5f562c592994d9693602875614483256505600bbc281ae381f54d6bce2ea911574932f52a4e6cadd78769375ec3ffd1b801a0d9b3f4030cd433964b6457ea39476511214f97469b57dd32dbc560a9a94d00bff07620464a3ad203df7dc7ce360c3cd3696d9d9fab90f00")
+
+        ed = eddsa.Ed448ph()
+
+        ed.update(b'\x61')
+        ed.update(b'\x62')
+        self.assertTrue(ed.verify(pub, b'\x63', sig, ctx))
+
+    def test_abc_update4(self):
+        prv = uh("833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42ef7822e0d5104127dc05d6dbefde69e3ab2cec7c867c6e2c49")
+        pub = uh("259b71c19f83ef77a7abd26524cbdb3161b590a48f7d17de3ee0ba9c52beb743c09428a131d6b1b57303d90d8132c276d5ed3d5d01c0f53880")
+        ctx = uh("")
+        sig = uh("822f6901f7480f3d5f562c592994d9693602875614483256505600bbc281ae381f54d6bce2ea911574932f52a4e6cadd78769375ec3ffd1b801a0d9b3f4030cd433964b6457ea39476511214f97469b57dd32dbc560a9a94d00bff07620464a3ad203df7dc7ce360c3cd3696d9d9fab90f00")
+
+        ed = eddsa.Ed448ph()
+
+        ed.update(b'')
+        ed.update(b'\x61')
+        ed.update(b'')
+        ed.update(b'\x62')
+        ed.update(b'\x63')
+        self.assertTrue(ed.verify(pub, b'', sig, ctx))
 
     def test_abc_with_context(self):
         prv = uh("833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42ef7822e0d5104127dc05d6dbefde69e3ab2cec7c867c6e2c49")

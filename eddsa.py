@@ -1,6 +1,5 @@
 """
-Below is an example implementation of Ed25519/Ed448 written in
-Python; version 3.2 or higher is required.
+Example implementation of Ed25519/Ed448 written in Python
 
 Note: This code is not intended for production.  Although it should
 produce correct results for every input, it is slow and makes no
@@ -124,37 +123,48 @@ def reinterpret_to_octets(w):
     return mp
 
 
-def sha3_raw(msg, r_w, o_p, e_b):
-    # (semi-)generic SHA-3 implementation
-    r_b = 8 * r_w
-    s = [0] * 25
-    # Handle whole blocks.
-    idx = 0
-    blocks = len(msg) // r_b
-    for _ in range(0, blocks):
-        reinterpret_to_words_and_xor(s, msg[idx:][:r_b])
-        idx += r_b
-        sha3_transform(s)
-    # Handle last block padding.
-    m = bytearray(msg[idx:])
-    m.append(o_p)
-    while len(m) < r_b:
-        m.append(0)
-    m[len(m) - 1] |= 128
-    # Handle padded last block.
-    reinterpret_to_words_and_xor(s, m)
-    sha3_transform(s)
-    # Output.
-    out = bytearray()
-    while len(out) < e_b:
-        out += reinterpret_to_octets(s[:r_w])
-        sha3_transform(s)
-    return out[:e_b]
+class Shake256(object):
+    def __init__(self, data=b''):
+        self.tail = bytearray()
+        self.s = [0] * 25
+        self.o_p = 31
+        self.r_w = 17
+        self.r_b = 8 * self.r_w
+        self.update(data)
+
+    def update(self, data):
+        # (semi-)generic SHA-3 implementation
+        data = self.tail + data
+        # Handle whole blocks.
+        idx = 0
+        blocks = len(data) // self.r_b
+        for _ in range(0, blocks):
+            reinterpret_to_words_and_xor(self.s, data[idx:][:self.r_b])
+            idx += self.r_b
+            sha3_transform(self.s)
+        self.tail = bytearray(data[idx:])
+
+    def digest(self, olen):
+        # Handle last block padding.
+        self.tail.append(self.o_p)
+        while len(self.tail) < self.r_b:
+            self.tail.append(0)
+        self.tail[-1] |= 128
+        # Handle padded last block.
+        reinterpret_to_words_and_xor(self.s, self.tail)
+        sha3_transform(self.s)
+        # Output.
+        out = bytearray()
+        while len(out) < olen:
+            out += reinterpret_to_octets(self.s[:self.r_w])
+            sha3_transform(self.s)
+        return out[:olen]
 
 
-def shake256(msg, olen):
-    # Implementation of SHAKE256 functions.
-    return sha3_raw(msg, 17, 31, olen)
+if 'shake_256' in dir(hashlib):
+    shake_256 = hashlib.shake_256
+else:
+    shake_256 = Shake256
 
 
 class Field(object):
@@ -639,7 +649,7 @@ def Ed448_inthash(data, ctx, hflag):
         if len(ctx) > 255:
             raise ValueError("Context too big")
         dompfx = b"SigEd448" + bytearray([1 if hflag else 0, len(ctx)]) + ctx
-    return shake256(dompfx + data, 114)
+    return shake_256(dompfx + data).digest(114)
 
 
 pEd448 = PureEdDSA(
@@ -653,32 +663,51 @@ class EdDSA(object):
     # Create a new scheme object, with the specified PureEdDSA base
     # scheme and specified prehash.
     def __init__(self, pure_scheme, prehash=None):
-        self.__pflag = True
+        self.__pflag = False
         self.__pure = pure_scheme
-        self.__prehash = prehash
-        if self.__prehash is None:
-            self.__prehash = lambda x, y: x
-            self.__pflag = False
-    # Generate a key.  If privkey is none, it generates a random
-    # privkey key, otherwise it uses a specified private key.
-    # Returns pair (privkey, pubkey).
+        self.__prehash = None
+        if prehash is not None:
+            self.__pflag = True
+            self.__prehash, self.__prehash_digest_args = prehash
+
+        self.reset()
+
+    def reset(self):
+        if self.__prehash is not None:
+            self.__prehashctx = self.__prehash()
 
     def keygen(self, privkey):
+        # Generate a key.  If privkey is none, it generates a random
+        # privkey key, otherwise it uses a specified private key.
+        # Returns pair (privkey, pubkey).
         return self.__pure.keygen(privkey)
+
+    def update(self, data):
+        # Update the prehash with chunks of data
+        if self.__prehash is not None:
+            self.__prehashctx.update(data)
 
     def sign(self, privkey, pubkey, msg, ctx=None):
         # Sign message msg using specified key pair.
         if ctx is None:
             ctx = b""
-        return self.__pure.sign(privkey, pubkey, self.__prehash(msg, ctx),
-                                ctx, self.__pflag)
+        self.update(msg)
+        msgdigest = self.__prehashctx.digest(*self.__prehash_digest_args) if self.__prehash is not None else msg
+        r = self.__pure.sign(privkey, pubkey, msgdigest,
+                             ctx, self.__pflag)
+        self.reset()
+        return r
 
     def verify(self, pubkey, msg, sig, ctx=None):
         # Verify signature sig on message msg using public key pubkey.
         if ctx is None:
             ctx = b""
-        return self.__pure.verify(pubkey, self.__prehash(msg, ctx), sig,
-                                  ctx, self.__pflag)
+        self.update(msg)
+        msgdigest = self.__prehashctx.digest(*self.__prehash_digest_args) if self.__prehash is not None else msg
+        r = self.__pure.verify(pubkey, msgdigest, sig,
+                               ctx, self.__pflag)
+        self.reset()
+        return r
 
 
 def Ed448ph_prehash(data, ctx):
@@ -700,7 +729,7 @@ class Ed25519ph(EdDSA):
     def __init__(self):
         super(
             Ed25519ph, self).__init__(
-            pEd25519ctx, lambda x, y: hashlib.sha512(x).digest())
+            pEd25519ctx, (hashlib.sha512, tuple()))
 
 
 class Ed448(EdDSA):
@@ -710,7 +739,7 @@ class Ed448(EdDSA):
 
 class Ed448ph(EdDSA):
     def __init__(self):
-        super(Ed448ph, self).__init__(pEd448, Ed448ph_prehash)
+        super(Ed448ph, self).__init__(pEd448, (shake_256, (64,)))
 
 
 if __name__ == "__main__":
@@ -751,4 +780,3 @@ if __name__ == "__main__":
         assert not ed25519.verify(public, bad_msg, signature)
         assert not ed25519.verify(public, msg, munge_string(signature, 20, 8))
         assert not ed25519.verify(public, msg, munge_string(signature, 40, 16))
-
